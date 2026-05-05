@@ -71,6 +71,16 @@ events at the end.
 npm start -- --grape http://127.0.0.1:30001 --id alice
 ```
 
+For crash-recovery support, pass `--wal-dir <path>`:
+
+```bash
+npm start -- --grape http://127.0.0.1:30001 --id alice --wal-dir ./wal
+```
+
+Every owner-side mutation is appended to `./wal/alice.wal`; on restart with
+the same `--id` and `--wal-dir`, the node replays the log and recovers its
+owned orders.
+
 You'll get a REPL:
 
 ```

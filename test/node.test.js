@@ -476,3 +476,94 @@ test('stress: 50 random orders across 3 nodes preserve conservation invariants',
 
   for (const node of nodes) await node.stop()
 })
+
+test('WAL: a node restarts from disk and recovers its owned orders', async () => {
+  const fs = require('fs')
+  const path = require('path')
+  const os = require('os')
+  const { Wal } = require('../src/wal')
+  const walDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tether-wal-it-'))
+
+  // First incarnation: writes WAL
+  const dir1 = new Directory()
+  const transport1 = new MockTransport(dir1)
+  transport1.start()
+  const wal1 = new Wal({ dir: walDir, nodeId: 'PERSIST' })
+  const node1 = new Node({ nodeId: 'PERSIST', transport: transport1, wal: wal1 })
+  await node1.start({ skipSnapshotDelay: true })
+
+  const r1 = await node1.submitOrder({ side: 'buy', price: 100, qty: 5 })
+  const r2 = await node1.submitOrder({ side: 'sell', price: 110, qty: 3 })
+  // Self-match attempt: would NOT cross (buy 100 vs sell 110), so both rest
+  assert.equal(r1.restingRemainder, 5)
+  assert.equal(r2.restingRemainder, 3)
+  assert.equal(node1.myOrders.size, 2)
+
+  await node1.stop()
+
+  // Second incarnation: restarts with same WAL dir + nodeId, fresh transport
+  const dir2 = new Directory()
+  const transport2 = new MockTransport(dir2)
+  transport2.start()
+  const wal2 = new Wal({ dir: walDir, nodeId: 'PERSIST' })
+  const node2 = new Node({ nodeId: 'PERSIST', transport: transport2, wal: wal2 })
+  await node2.start({ skipSnapshotDelay: true })
+
+  // Both orders should be back in myOrders AND book
+  assert.equal(node2.myOrders.size, 2)
+  assert.ok(node2.myOrders.has(r1.orderId))
+  assert.ok(node2.myOrders.has(r2.orderId))
+  assert.equal(node2.book.bids.length, 1)
+  assert.equal(node2.book.asks.length, 1)
+  assert.equal(node2.book.get(r1.orderId).remaining, 5)
+  assert.equal(node2.book.get(r2.orderId).remaining, 3)
+
+  await node2.stop()
+})
+
+test('WAL: replays reduce records correctly', async () => {
+  const fs = require('fs')
+  const path = require('path')
+  const os = require('os')
+  const { Wal } = require('../src/wal')
+  const walDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tether-wal-it-'))
+
+  // First node: maker that gets partially filled
+  const dir1 = new Directory()
+  const transport1 = new MockTransport(dir1)
+  transport1.start()
+  const wal1 = new Wal({ dir: walDir, nodeId: 'M' })
+  const maker = new Node({ nodeId: 'M', transport: transport1, wal: wal1 })
+  await maker.start({ skipSnapshotDelay: true })
+
+  const transport2 = new MockTransport(dir1)
+  transport2.start()
+  const taker = new Node({ nodeId: 'T', transport: transport2 })
+  await taker.start({ skipSnapshotDelay: true })
+
+  // Maker rests sell 10@99
+  const r = await maker.submitOrder({ side: 'sell', price: 99, qty: 10 })
+  await new Promise(r => setImmediate(r))
+
+  // Taker buys 6 — partial fill on maker
+  await taker.submitOrder({ side: 'buy', price: 100, qty: 6 })
+  // Maker should have 4 remaining
+  assert.equal(maker.myOrders.get(r.orderId).remaining, 4)
+
+  await maker.stop()
+  await taker.stop()
+
+  // Restart maker only
+  const dir3 = new Directory()
+  const transport3 = new MockTransport(dir3)
+  transport3.start()
+  const wal3 = new Wal({ dir: walDir, nodeId: 'M' })
+  const maker2 = new Node({ nodeId: 'M', transport: transport3, wal: wal3 })
+  await maker2.start({ skipSnapshotDelay: true })
+
+  // After WAL replay, the order should reflect the post-fill state (4 remaining)
+  assert.equal(maker2.myOrders.size, 1)
+  assert.equal(maker2.myOrders.get(r.orderId).remaining, 4)
+
+  await maker2.stop()
+})

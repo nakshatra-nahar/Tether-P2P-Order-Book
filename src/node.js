@@ -6,10 +6,11 @@ const { OrderBook } = require('./orderbook')
 const { findCandidates, crosses } = require('./matching')
 
 class Node extends EventEmitter {
-  constructor ({ nodeId, transport }) {
+  constructor ({ nodeId, transport, wal = null }) {
     super()
     this.nodeId = nodeId || randomUUID()
     this.transport = transport
+    this.wal = wal
     this.book = new OrderBook()
     this.myOrders = new Map()
     this._snapshotBuffer = []
@@ -20,6 +21,12 @@ class Node extends EventEmitter {
     this.transport.onRequest((payload, key) => this._handleRpc(payload, key))
     this.transport.announce('orderbook')
     this.transport.announce('orderbook.node.' + this.nodeId)
+
+    // Replay WAL BEFORE peer snapshot — restores authoritative state for
+    // orders this node owns. Peer snapshot then fills in remote orders.
+    if (this.wal) {
+      this.wal.replay((record) => this._applyWalRecord(record))
+    }
 
     if (!skipSnapshotDelay) await new Promise(r => setTimeout(r, snapshotDelayMs))
 
@@ -53,6 +60,31 @@ class Node extends EventEmitter {
 
   async stop () {
     try { this.transport.stop() } catch (_) {}
+  }
+
+  _applyWalRecord (record) {
+    const { op } = record
+    if (op === 'add') {
+      const order = { ...record.order }
+      this.myOrders.set(order.id, order)
+      this.book.add(order)
+      return
+    }
+    if (op === 'reduce') {
+      const o = this.myOrders.get(record.orderId)
+      if (!o) return
+      const delta = o.remaining - record.remaining
+      if (delta > 0) this.book.decrement(record.orderId, delta)
+      o.version = record.version
+      if (o.remaining <= 0) this.myOrders.delete(record.orderId)
+      return
+    }
+    if (op === 'remove') {
+      const o = this.myOrders.get(record.orderId)
+      if (!o) return
+      this.myOrders.delete(record.orderId)
+      this.book.remove(record.orderId)
+    }
   }
 
   async _handleRpc (payload, key) {
@@ -139,6 +171,11 @@ class Node extends EventEmitter {
     this.book.decrement(makerOrderId, fillQty)
     if (newRemaining <= 0) this.myOrders.delete(makerOrderId)
 
+    if (this.wal) {
+      this.wal.append(newRemaining > 0
+        ? { op: 'reduce', orderId: makerOrderId, remaining: newRemaining, version: maker.version }
+        : { op: 'remove', orderId: makerOrderId, version: maker.version })
+    }
     const update = newRemaining > 0
       ? { type: 'applyUpdate', op: 'reduce', orderId: makerOrderId, qty: fillQty, remaining: newRemaining, version: maker.version }
       : { type: 'applyUpdate', op: 'remove', orderId: makerOrderId, version: maker.version }
@@ -190,6 +227,11 @@ class Node extends EventEmitter {
         if (newRemaining <= 0) this.myOrders.delete(c.makerOrderId)
         taker.remaining -= fillQty
 
+        if (this.wal) {
+          this.wal.append(newRemaining > 0
+            ? { op: 'reduce', orderId: c.makerOrderId, remaining: newRemaining, version: myMaker.version }
+            : { op: 'remove', orderId: c.makerOrderId, version: myMaker.version })
+        }
         const update = newRemaining > 0
           ? { type: 'applyUpdate', op: 'reduce', orderId: c.makerOrderId, qty: fillQty, remaining: newRemaining, version: myMaker.version }
           : { type: 'applyUpdate', op: 'remove', orderId: c.makerOrderId, version: myMaker.version }
@@ -263,6 +305,7 @@ class Node extends EventEmitter {
       this.myOrders.set(taker.id, taker)
       this.book.add(taker)
       restingRemainder = taker.remaining
+      if (this.wal) this.wal.append({ op: 'add', order: { ...taker } })
       const update = { type: 'applyUpdate', op: 'add', order: { ...taker }, version: taker.version }
       Promise.resolve(this.transport.broadcast('orderbook', update)).catch(() => {})
     }
@@ -276,6 +319,7 @@ class Node extends EventEmitter {
     o.version += 1
     this.myOrders.delete(orderId)
     this.book.remove(orderId)
+    if (this.wal) this.wal.append({ op: 'remove', orderId, version: o.version })
     const update = { type: 'applyUpdate', op: 'remove', orderId, version: o.version }
     Promise.resolve(this.transport.broadcast('orderbook', update)).catch(() => {})
     this.emit('remove', { orderId, version: o.version })

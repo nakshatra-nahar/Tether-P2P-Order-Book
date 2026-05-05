@@ -5,16 +5,18 @@ const fs = require('fs')
 const path = require('path')
 const { Transport } = require('../src/transport')
 const { Node } = require('../src/node')
+const { Wal } = require('../src/wal')
 const { startRepl } = require('../src/repl')
 
 function parseArgs (argv) {
-  const args = { grape: 'http://127.0.0.1:30001', id: null, seed: null, noRepl: false }
+  const args = { grape: 'http://127.0.0.1:30001', id: null, seed: null, noRepl: false, walDir: null }
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--grape') args.grape = argv[++i]
     else if (a === '--id') args.id = argv[++i]
     else if (a === '--seed') args.seed = argv[++i]
     else if (a === '--no-repl') args.noRepl = true
+    else if (a === '--wal-dir') args.walDir = argv[++i]
   }
   return args
 }
@@ -24,7 +26,15 @@ async function main () {
   const transport = new Transport({ grape: args.grape })
   transport.start()
 
-  const node = new Node({ nodeId: args.id, transport })
+  let wal = null
+  if (args.walDir) {
+    if (!args.id) {
+      console.error('--wal-dir requires --id (so the WAL filename is stable across restarts)')
+      process.exit(1)
+    }
+    wal = new Wal({ dir: args.walDir, nodeId: args.id })
+  }
+  const node = new Node({ nodeId: args.id, transport, wal })
 
   // Tag every trade with a stable label for log scraping in demo
   node.on('trade', (t) => {

@@ -5,13 +5,21 @@ implementation, with notes on how each would be addressed given more time.
 
 ## Functional gaps
 
-### 1. No persistence
-Orders live in memory. If a node crashes, its open orders are lost.
+### 1. WAL persistence shipped; compaction not yet implemented
+A per-node append-only JSONL WAL is now wired in (opt-in via `--wal-dir`).
+Every owner-side mutation (`add`/`reduce`/`remove`) is written before the
+in-memory state advances, so a crashed-and-restarted node restores its
+owned orders before fetching the peer snapshot. The WAL handles a torn
+final write (truncated trailing line is skipped on replay).
 
-**How to fix:** add a per-node append-only WAL (write-ahead log) in JSONL.
-Append every owner-side mutation (`add`/`reduce`/`remove`) before
-broadcasting; on startup, replay the WAL into `myOrders` and `book` before
-fetching the snapshot.
+What's still missing is **compaction**: the WAL grows unbounded as orders
+churn through. For a long-lived node, file size is a real concern.
+
+**How to fix:** periodically take a checkpoint of the live `myOrders`
+state, write it as a single `{ op: 'snapshot', orders: [...] }` record at
+the head of a new WAL file, and atomically replace. Stale records before
+the checkpoint can be discarded. This is ~30 lines and bounds WAL size
+to live-order count.
 
 ### 2. No order-owner failover
 If the owner of an order crashes, its open orders are effectively lost (other
@@ -69,21 +77,19 @@ are time-in-force flags that skip the "rest the remainder" branch.
 others' orders anyway. If we add accounts/auth, the account holder's signed
 request to any node would broadcast a signed cancel that the owner verifies.
 
-### 8. Snapshot replay restores self-owned orders, but no WAL exists
-On startup, when a node fetches a snapshot it now correctly registers
-self-owned orders (`order.ownerNodeId === this.nodeId`) into `myOrders` -
-so a restarted node with the same `nodeId` will continue to own its prior
-orders if peers are still around to provide the snapshot.
+### 8. Full crash recovery requires WAL+snapshot in combination (now shipped)
+Both pieces are now present:
+- WAL replay (this section's predecessor) restores authoritative state for
+  orders this node owns.
+- Peer snapshot merge (already shipped) fills in remote orders.
 
-This is **not** the same as full crash recovery. If ALL nodes crash and
-restart simultaneously, no peer holds the snapshot, and the orders are lost
-because nothing was persisted.
+A node can fully recover its state as long as at least one of (own WAL,
+reachable peer with the snapshot) is available. The remaining gap is the
+all-nodes-crash-simultaneously case; persistence on every node makes this
+recoverable too.
 
-**How to fix:** combine the now-implemented snapshot-rehydration with a
-per-node WAL (see #1). On startup, replay WAL into `myOrders`/`book` first,
-then merge the peer snapshot to fill in remote orders. This gives full
-self-recovery as long as at least one of (own WAL, peer snapshot) is
-available.
+**Optional extension:** add an aggregated checkpoint format so cold-start
+of a new fleet from disk doesn't need any peer snapshot at all.
 
 ## Robustness / production gaps
 
