@@ -65,13 +65,13 @@ are time-in-force flags that skip the "rest the remainder" branch.
 ### 7. No cancellation across the wire
 `cancelOrder` only works for the owner. We don't expose remote cancellation.
 
-**How to fix:** not needed in P2P — non-owners shouldn't be able to cancel
+**How to fix:** not needed in P2P - non-owners shouldn't be able to cancel
 others' orders anyway. If we add accounts/auth, the account holder's signed
 request to any node would broadcast a signed cancel that the owner verifies.
 
 ### 8. Snapshot replay restores self-owned orders, but no WAL exists
 On startup, when a node fetches a snapshot it now correctly registers
-self-owned orders (`order.ownerNodeId === this.nodeId`) into `myOrders` —
+self-owned orders (`order.ownerNodeId === this.nodeId`) into `myOrders` -
 so a restarted node with the same `nodeId` will continue to own its prior
 orders if peers are still around to provide the snapshot.
 
@@ -95,7 +95,7 @@ larger fills than actually happened.
 **How to fix:** orders signed by the submitter; fill receipts signed by both
 maker and taker; peers verify signatures before applying broadcasts. For
 fully Byzantine-tolerant matching you'd need PBFT or a Tendermint-style
-ordering layer — out of scope for a 6-8h task.
+ordering layer - out of scope for a 6-8h task.
 
 ### 10. Naive broadcast (O(N) per update)
 Every state change is broadcast via `peer.map` to all peers. Scales poorly.

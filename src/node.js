@@ -133,7 +133,7 @@ class Node extends EventEmitter {
     const fillQty = Math.min(qty, maker.remaining)
     if (fillQty <= 0) return { rejected: true, reason: 'no-qty' }
 
-    // ATOMIC BLOCK — no awaits between read and decrement
+    // ATOMIC BLOCK - no awaits between read and decrement
     maker.version += 1
     const newRemaining = maker.remaining - fillQty
     this.book.decrement(makerOrderId, fillQty)
@@ -221,7 +221,7 @@ class Node extends EventEmitter {
           { timeout: 1500 }
         )
       } catch (_) {
-        // Owner unreachable — drop from local replica and try next
+        // Owner unreachable - drop from local replica and try next
         this.book.remove(c.makerOrderId)
         continue
       }
@@ -253,7 +253,7 @@ class Node extends EventEmitter {
           price: c.price, qty: resp.filled
         })
       } else {
-        // Rejection — drop from replica and try next
+        // Rejection - drop from replica and try next
         this.book.remove(c.makerOrderId)
       }
     }

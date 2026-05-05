@@ -197,7 +197,7 @@ test('tryFill rejects on price-no-cross', async () => {
   await a.stop()
 })
 
-test('tryFill — concurrent calls serialized: total filled <= maker qty', async () => {
+test('tryFill - concurrent calls serialized: total filled <= maker qty', async () => {
   const dir = new Directory()
   const a = await makeNode(dir, 'A')
   const { orderId } = await a.submitOrder({ side: 'buy', price: 100, qty: 10 })
@@ -239,7 +239,7 @@ test('applyUpdate received before _ready is buffered and replayed', async () => 
   transport.start()
   const node = new Node({ nodeId: 'X', transport })
 
-  // Send an applyUpdate BEFORE start() — _ready is false
+  // Send an applyUpdate BEFORE start() - _ready is false
   const order = {
     id: 'preboot', ownerNodeId: 'Y', side: 'sell', price: 99,
     qty: 4, remaining: 4, ts: 1, version: 1
@@ -249,7 +249,7 @@ test('applyUpdate received before _ready is buffered and replayed', async () => 
   // Book is still empty (update was buffered, not applied)
   assert.equal(node.book.bids.length + node.book.asks.length, 0)
 
-  // Now run start() — should drain the buffer
+  // Now run start() - should drain the buffer
   await node.start({ skipSnapshotDelay: true })
   assert.equal(node.book.asks.length, 1)
   assert.equal(node.book.get('preboot').version, 1)
@@ -277,7 +277,7 @@ test('submitOrder drops a candidate when its owner times out and tries the next 
   await m2.submitOrder({ side: 'sell', price: 100, qty: 5 })
   await new Promise(r => setImmediate(r))
 
-  // Taker buys 3 — should hit m1 first, fail, drop, then hit m2 successfully
+  // Taker buys 3 - should hit m1 first, fail, drop, then hit m2 successfully
   const r = await taker.submitOrder({ side: 'buy', price: 100, qty: 3 })
   assert.equal(r.fills.length, 1)
   assert.equal(r.fills[0].ownerNodeId, 'M2')
@@ -297,7 +297,7 @@ test('tryFill via wrong service name is rejected', async () => {
     type: 'tryFill', makerOrderId: orderId,
     takerOrderId: 't', takerNodeId: 'T',
     price: 99, qty: 1
-  }, 'orderbook')  // wrong — must be orderbook.node.A
+  }, 'orderbook')  // wrong - must be orderbook.node.A
   assert.equal(r.rejected, true)
   assert.equal(r.reason, 'wrong-service')
   await a.stop()

@@ -1,4 +1,4 @@
-# Tether — P2P Distributed Orderbook
+# Tether - P2P Distributed Orderbook
 
 A simplified distributed exchange in Node.js. Each node is its own process
 with its own orderbook; orders propagate to all peers via Grenache RPC; a
@@ -90,7 +90,7 @@ cancelled <uuid>
 ```
 
 Open multiple terminals, each running its own node, all pointing at the same
-grape — they discover each other and exchange orders.
+grape - they discover each other and exchange orders.
 
 ## Project layout
 

@@ -71,7 +71,7 @@ test('sell taker matches descending bids', () => {
   assert.deepEqual(c.map(x => [x.makerOrderId, x.qty]), [['a', 3], ['b', 2]])
 })
 
-test('partial fill — taker remainder reflected in returned qty', () => {
+test('partial fill - taker remainder reflected in returned qty', () => {
   const b = new OrderBook()
   b.add(mk({ id: 'a', side: 'sell', price: 99, remaining: 2 }))
   const taker = mk({ id: 't', side: 'buy', price: 100, remaining: 5 })

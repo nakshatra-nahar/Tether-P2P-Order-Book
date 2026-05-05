@@ -1,7 +1,7 @@
 {
   "name": "tether-p2p-orderbook",
   "version": "0.1.0",
-  "description": "P2P distributed exchange — simplified orderbook over Grenache",
+  "description": "P2P distributed exchange - simplified orderbook over Grenache",
   "main": "bin/tether-node.js",
   "engines": {
     "node": ">=18"
