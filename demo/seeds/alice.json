@@ -1,0 +1,5 @@
+[
+  { "delayMs": 3000, "side": "buy", "price": 100, "qty": 5 },
+  { "delayMs": 300,  "side": "buy", "price": 99,  "qty": 3 },
+  { "delayMs": 300,  "side": "buy", "price": 101, "qty": 2 }
+]

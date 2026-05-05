@@ -1,0 +1,20 @@
+{
+  "name": "tether-p2p-orderbook",
+  "version": "0.1.0",
+  "description": "P2P distributed exchange — simplified orderbook over Grenache",
+  "main": "bin/tether-node.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo/demo.js",
+    "stress": "node demo/stress.js",
+    "start": "node bin/tether-node.js"
+  },
+  "dependencies": {
+    "grenache-nodejs-http": "^0.7.10",
+    "grenache-nodejs-link": "^0.7.10"
+  },
+  "license": "MIT"
+}
