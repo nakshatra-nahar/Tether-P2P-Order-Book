@@ -22,7 +22,7 @@ class Node extends EventEmitter {
     this.transport.announce('orderbook')
     this.transport.announce('orderbook.node.' + this.nodeId)
 
-    // Replay WAL BEFORE peer snapshot — restores authoritative state for
+    // Replay WAL BEFORE peer snapshot - restores authoritative state for
     // orders this node owns. Peer snapshot then fills in remote orders.
     if (this.wal) {
       this.wal.replay((record) => this._applyWalRecord(record))

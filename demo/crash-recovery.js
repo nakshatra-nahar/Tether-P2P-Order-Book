@@ -71,7 +71,7 @@ async function main () {
     console.log('  ' + lines.length + ' records written')
     for (const ln of lines) console.log('  ' + ln)
   } else {
-    console.log('  (no WAL file found — something is wrong)')
+    console.log('  (no WAL file found - something is wrong)')
   }
 
   console.log('---')

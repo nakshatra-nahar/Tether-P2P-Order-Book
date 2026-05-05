@@ -7,7 +7,7 @@ implementation, with notes on how each would be addressed given more time.
 1 was a duplicate (now consolidated, leaving 18 numbered sections) and
 4 were shipped during late-stage polish (#1 WAL persistence, #8 snapshot
 self-rehydration, #14 emit-remove-on-replace, #17 demo auto-spawn). The
-remaining 14 items are real follow-up work — categorized below as
+remaining 14 items are real follow-up work - categorized below as
 functional, robustness, or operational gaps. Each entry includes a
 "How to fix" note describing the approach I'd take. Sections marked
 "(shipped)" in their headings are kept in the document as a record of

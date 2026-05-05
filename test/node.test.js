@@ -545,7 +545,7 @@ test('WAL: replays reduce records correctly', async () => {
   const r = await maker.submitOrder({ side: 'sell', price: 99, qty: 10 })
   await new Promise(r => setImmediate(r))
 
-  // Taker buys 6 — partial fill on maker
+  // Taker buys 6 - partial fill on maker
   await taker.submitOrder({ side: 'buy', price: 100, qty: 6 })
   // Maker should have 4 remaining
   assert.equal(maker.myOrders.get(r.orderId).remaining, 4)

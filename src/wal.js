@@ -13,7 +13,7 @@ class Wal {
     this.path = path.join(dir, nodeId + '.wal')
   }
 
-  // Synchronous append — keeps WAL in lock-step with in-memory state.
+  // Synchronous append - keeps WAL in lock-step with in-memory state.
   // Trade: blocks the event loop briefly per write. Acceptable for v1
   // since orders/sec is bounded; production would use an async batched writer.
   append (record) {

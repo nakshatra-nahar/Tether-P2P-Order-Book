@@ -1,4 +1,4 @@
-# Tether — P2P Distributed Orderbook
+# Tether - P2P Distributed Orderbook
 
 A simplified distributed exchange in Node.js. Each node is its own process
 with its own orderbook; orders propagate to all peers via Grenache RPC; a
@@ -24,7 +24,7 @@ installed globally (see Prerequisites).
   where it was submitted). The owner is the only authority that can decrement
   the order's remaining quantity. Other nodes hold a replica for visibility
   but cannot mutate it. This is the answer to the brief's "beware of race
-  conditions" warning — atomic serialization comes for free from the JS
+  conditions" warning - atomic serialization comes for free from the JS
   event loop on the owner.
 - **RPC routing**: takers contact the owner via `orderbook.node.<ownerId>`.
   Owners atomically decrement, broadcast the new state via `applyUpdate`,
@@ -142,7 +142,7 @@ cancelled <uuid>
 ```
 
 Open multiple terminals, each running its own node, all pointing at the
-same grape — they discover each other and exchange orders.
+same grape - they discover each other and exchange orders.
 
 ## Project layout
 
