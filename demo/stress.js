@@ -11,6 +11,7 @@
 
 const { spawn } = require('child_process')
 const path = require('path')
+const { ensureGrapesRunning } = require('./grape-launcher')
 
 const ROOT = path.resolve(__dirname, '..')
 const ENTRY = path.join(ROOT, 'bin', 'tether-node.js')
@@ -66,9 +67,9 @@ function spawnNode (cfg) {
 async function main () {
   console.log('Stress demo: 3 nodes × ' + ROUNDS + ' rounds = ' + (ROUNDS * 3) + ' orders')
   console.log('Roles: alice=buyer, bob=seller, carol=mixed')
-  console.log('Make sure two grape daemons are running:')
-  console.log("  grape --dp 20001 --aph 30001 --bn '127.0.0.1:20002'")
-  console.log("  grape --dp 20002 --aph 40001 --bn '127.0.0.1:20001'")
+  console.log('---')
+  console.log('Ensuring grape daemons are running...')
+  const teardownGrapes = await ensureGrapesRunning()
   console.log('---')
 
   const procs = NODES.map(spawnNode)
@@ -124,6 +125,8 @@ async function main () {
   for (const p of procs) {
     try { p.kill('SIGKILL') } catch (_) {}
   }
+
+  await teardownGrapes()
   process.exit(0)
 }
 

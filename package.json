@@ -10,6 +10,7 @@
     "test": "node --test",
     "demo": "node demo/demo.js",
     "stress": "node demo/stress.js",
+    "crash-recovery": "node demo/crash-recovery.js",
     "start": "node bin/tether-node.js"
   },
   "dependencies": {

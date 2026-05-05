@@ -121,7 +121,10 @@ class Node extends EventEmitter {
 
     if (op === 'add') {
       if (current && current.version >= version) return
-      if (current) this.book.remove(current.id)
+      if (current) {
+        this.book.remove(current.id)
+        this.emit('remove', { orderId: current.id, version: current.version })
+      }
       this.book.add({ ...order })
       this.emit('add', { ...order })
       return

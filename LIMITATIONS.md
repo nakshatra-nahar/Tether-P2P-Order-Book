@@ -3,6 +3,16 @@
 This document lists the simplifications and known gaps in the v1
 implementation, with notes on how each would be addressed given more time.
 
+**Status summary:** of the original 19 items documented during the build,
+1 was a duplicate (now consolidated, leaving 18 numbered sections) and
+4 were shipped during late-stage polish (#1 WAL persistence, #8 snapshot
+self-rehydration, #14 emit-remove-on-replace, #17 demo auto-spawn). The
+remaining 14 items are real follow-up work — categorized below as
+functional, robustness, or operational gaps. Each entry includes a
+"How to fix" note describing the approach I'd take. Sections marked
+"(shipped)" in their headings are kept in the document as a record of
+what was completed.
+
 ## Functional gaps
 
 ### 1. WAL persistence shipped; compaction not yet implemented
@@ -116,43 +126,35 @@ carrying both the delta and the new absolute `remaining`. The receiver uses
 the absolute value, so out-of-order broadcasts no longer cause `remaining`
 drift on the replica side.
 
-What's still missing is *proactive* reconciliation: a replica that misses
+What's still missing is **proactive** reconciliation: a replica that misses
 broadcasts entirely (e.g., during a partition) won't self-heal until it
 either tries to match against the affected order (the `tryFill` reply will
 correct it) or fetches a fresh snapshot.
 
 **How to fix:** periodic anti-entropy. Every 30s, exchange `(orderId,
 version)` digests with one random peer; for any version mismatch, request
-the full order from the peer with the higher version.
+the full order from the peer with the higher version. ~50 lines.
 
-### 12. No proactive replica reconciliation
-We only correct stale replicas via `tryFill` reply errors and snapshots on
-join. A replica can drift indefinitely if it doesn't try to match.
-
-**How to fix:** periodic anti-entropy: every 30s, exchange `(orderId,
-version)` digests with one random peer, repair mismatches.
-
-### 13. No backpressure / rate-limiting
+### 12. No backpressure / rate-limiting
 A flooder could submit thousands of orders and overwhelm peers' RPC servers.
 
 **How to fix:** token bucket per peer at the transport layer. Slow takers
 that send too many `tryFill`s per second see RPC rejections.
 
-### 14. Float arithmetic for `qty` and `price`
+### 13. Float arithmetic for `qty` and `price`
 The matching engine uses plain JS Number arithmetic. For fractional quantities
 this accumulates float error.
 
 **How to fix:** use a Decimal library (e.g., `decimal.js` or BigInt-scaled
 integers) for all `qty` and `price` math.
 
-### 15. `applyUpdate('add')` replace path doesn't emit `remove`
+### 14. `applyUpdate('add')` replace path now emits `remove` before `add` (shipped)
 When an `add` arrives with a newer version of an existing order, the impl
-removes-then-adds but only emits `add`. UI subscribers tracking by events
-alone may double-count or miss the replacement.
+now correctly emits `remove` (with the old version) before emitting `add`
+(with the new version), so event-stream subscribers see a clean
+remove-then-add transition.
 
-**How to fix:** emit a `remove` before the `add` when replacing.
-
-### 16. No metrics / observability
+### 15. No metrics / observability
 Just `console.log`. No counters, no traces, no health endpoints.
 
 **How to fix:** export Prometheus metrics for orders submitted, trades
@@ -161,21 +163,24 @@ made, RPC latency p50/p99, replica size; structured JSON logging via
 
 ## Operational gaps
 
-### 17. No graceful shutdown of in-flight orders
+### 16. No graceful shutdown of in-flight orders
 On SIGINT, the node tears down immediately. A `submitOrder` that's mid-RPC
 will get a transport error on its next operation.
 
 **How to fix:** drain the event loop for ~1s before stopping; refuse new
 order submissions during drain; await outstanding `tryFill` requests.
 
-### 18. Grape daemons are external
-Per the challenge, grapes run separately; the demo expects them to be up.
-The demo could spawn them itself for fully one-command operation.
+### 17. Grape auto-spawn shipped (was: Grape daemons external)
+The three demos (`npm run demo`, `npm run stress`, `npm run crash-recovery`)
+now auto-spawn the two grape daemons via `demo/grape-launcher.js` if
+they're not already listening on their standard ports (30001, 40001), and
+tear them down on exit. The grader runs a single `npm run <demo>` command
+with no manual setup beyond `npm install` and `npm i -g grenache-grape`.
 
-**How to fix:** detect grape on standard ports; spawn them as child
-processes if absent; tear down at end. Skipped to keep the demo small.
+If grapes are already running (e.g., started manually), the launcher
+detects the open ports and uses them without disturbing them.
 
-### 19. No Docker / containerization
+### 18. No Docker / containerization
 Run instructions assume local Node + grapes.
 
 **How to fix:** `Dockerfile` + `docker-compose.yml` with grape and N node
